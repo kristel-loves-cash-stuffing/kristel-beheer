@@ -1,1 +1,174 @@
 
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kristel Beheer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #fff4f8;
+      color: #493442;
+    }
+    header {
+      background: #e98db5;
+      color: white;
+      padding: 25px 20px;
+      text-align: center;
+    }
+    main {
+      max-width: 650px;
+      margin: 25px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: white;
+      padding: 22px;
+      margin-bottom: 18px;
+      border-radius: 18px;
+      box-shadow: 0 3px 14px #0000000d;
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 10px;
+      border: 1px solid #e5cbd8;
+      font: inherit;
+    }
+    button {
+      background: #d85d94;
+      color: white;
+      border: 0;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .muted { color: #806c78; font-size: 14px; }
+    #dashboard { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💕 Kristel Beheer</h1>
+    <p>Jouw eigen plek om de website te beheren</p>
+  </header>
+
+  <main>
+    <section class="card" id="login">
+      <h2>Welkom terug!</h2>
+      <p>Log in met je beheeraccount.</p>
+      <input id="email" type="email" placeholder="E-mailadres" autocomplete="email">
+      <input id="password" type="password" placeholder="Wachtwoord" autocomplete="current-password">
+      <button id="loginButton">Inloggen</button>
+      <p id="message" class="muted"></p>
+    </section>
+
+    <section id="dashboard">
+      <div class="card">
+        <h2>Dashboard ✨</h2>
+        <p>Je bent ingelogd bij Kristel Beheer.</p>
+        <button id="logoutButton">Uitloggen</button>
+      </div>
+
+      <div class="card">
+        <h2>Website-inhoud</h2>
+        <p class="muted">Hier kun je straks teksten van de openbare website aanpassen.</p>
+        <label for="section">Onderdeel</label>
+        <input id="section" placeholder="Bijvoorbeeld: welkom">
+        <label for="title">Titel</label>
+        <input id="title" placeholder="Titel">
+        <label for="content">Tekst</label>
+        <textarea id="content" rows="5" placeholder="Website-tekst"></textarea>
+        <button id="saveButton">Inhoud opslaan</button>
+        <p id="saveMessage" class="muted"></p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createClient } from
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    // Vul hier later je Supabase Project URL en publishable key in.
+    const SUPABASE_URL = 'VUL_HIER_JE_PROJECT_URL_IN';
+    const SUPABASE_KEY = 'VUL_HIER_JE_PUBLISHABLE_KEY_IN';
+
+    const login = document.querySelector('#login');
+    const dashboard = document.querySelector('#dashboard');
+    const message = document.querySelector('#message');
+    const saveMessage = document.querySelector('#saveMessage');
+
+    if (SUPABASE_URL.startsWith('https://') &&
+        !SUPABASE_URL.includes('VUL_HIER')) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      async function refresh() {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          login.style.display = 'block';
+          dashboard.style.display = 'none';
+          return;
+        }
+
+        const { data: admin } = await supabase
+          .from('admin_users')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        login.style.display = 'none';
+        dashboard.style.display = admin ? 'block' : 'none';
+
+        if (!admin) {
+          message.textContent = 'Dit account heeft geen beheerrechten.';
+          login.style.display = 'block';
+          await supabase.auth.signOut();
+        }
+      }
+
+      document.querySelector('#loginButton').onclick = async () => {
+        message.textContent = 'Bezig met inloggen...';
+        const { error } = await supabase.auth.signInWithPassword({
+          email: document.querySelector('#email').value,
+          password: document.querySelector('#password').value
+        });
+        message.textContent = error ? error.message : '';
+        if (!error) await refresh();
+      };
+
+      document.querySelector('#logoutButton').onclick = async () => {
+        await supabase.auth.signOut();
+        await refresh();
+      };
+
+      document.querySelector('#saveButton').onclick = async () => {
+        saveMessage.textContent = 'Opslaan...';
+        const section = document.querySelector('#section').value.trim();
+        const title = document.querySelector('#title').value;
+        const content = document.querySelector('#content').value;
+
+        if (!section) {
+          saveMessage.textContent = 'Vul eerst een onderdeel in.';
+          return;
+        }
+
+        const { error } = await supabase
+          .from('website_content')
+          .upsert({ section, title, content }, { onConflict: 'section' });
+
+        saveMessage.textContent = error
+          ? 'Opslaan mislukt: ' + error.message
+          : 'Opgeslagen! 🎉';
+      };
+
+      refresh();
+    } else {
+      message.textContent =
+        'Vul eerst de Supabase-projectgegevens in om in te loggen.';
+    }
+  </script>
+</body>
+</html>
