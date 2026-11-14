@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -7,23 +6,27 @@
   <title>Kristel Beheer</title>
   <style>
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       background: #fff4f8;
       color: #493442;
     }
+
     header {
       background: #e98db5;
       color: white;
       padding: 25px 20px;
       text-align: center;
     }
+
     main {
-      max-width: 650px;
+      max-width: 700px;
       margin: 25px auto;
       padding: 0 16px;
     }
+
     .card {
       background: white;
       padding: 22px;
@@ -31,6 +34,7 @@
       border-radius: 18px;
       box-shadow: 0 3px 14px #0000000d;
     }
+
     input, textarea, button {
       width: 100%;
       padding: 12px;
@@ -39,6 +43,7 @@
       border: 1px solid #e5cbd8;
       font: inherit;
     }
+
     button {
       background: #d85d94;
       color: white;
@@ -46,10 +51,44 @@
       font-weight: bold;
       cursor: pointer;
     }
-    .muted { color: #806c78; font-size: 14px; }
+
+    button:hover {
+      background: #c94c83;
+    }
+
+    .muted {
+      color: #806c78;
+      font-size: 14px;
+    }
+
     #dashboard { display: none; }
+
+    .history-item {
+      border: 1px solid #f0d5e1;
+      padding: 12px;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+
+    .history-item button {
+      margin-top: 8px;
+    }
+
+    .secondary {
+      background: #98758a;
+    }
+
+    .preview {
+      background: #fff4f8;
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
   </style>
 </head>
+
 <body>
   <header>
     <h1>💕 Kristel Beheer</h1>
@@ -60,31 +99,72 @@
     <section class="card" id="login">
       <h2>Welkom terug!</h2>
       <p>Log in met je beheeraccount.</p>
-      <input id="email" type="email" placeholder="E-mailadres" autocomplete="email">
-      <input id="password" type="password" placeholder="Wachtwoord" autocomplete="current-password">
+
+      <input id="email" type="email"
+        placeholder="E-mailadres" autocomplete="email">
+
+      <input id="password" type="password"
+        placeholder="Wachtwoord" autocomplete="current-password">
+
       <button id="loginButton">Inloggen</button>
       <p id="message" class="muted"></p>
     </section>
 
     <section id="dashboard">
+
       <div class="card">
         <h2>Dashboard ✨</h2>
         <p>Je bent ingelogd bij Kristel Beheer.</p>
-        <button id="logoutButton">Uitloggen</button>
+        <button id="logoutButton" class="secondary">Uitloggen</button>
       </div>
 
       <div class="card">
-        <h2>Website-inhoud</h2>
-        <p class="muted">Hier kun je straks teksten van de openbare website aanpassen.</p>
+        <h2>Website-inhoud ✏️</h2>
+        <p class="muted">
+          Hier kun je teksten van de openbare website aanpassen.
+        </p>
+
         <label for="section">Onderdeel</label>
         <input id="section" placeholder="Bijvoorbeeld: welkom">
+
         <label for="title">Titel</label>
         <input id="title" placeholder="Titel">
+
         <label for="content">Tekst</label>
-        <textarea id="content" rows="5" placeholder="Website-tekst"></textarea>
+        <textarea id="content" rows="5"
+          placeholder="Website-tekst"></textarea>
+
         <button id="saveButton">Inhoud opslaan</button>
         <p id="saveMessage" class="muted"></p>
       </div>
+
+      <div class="card">
+        <h2>🕘 Bewerkgeschiedenis</h2>
+        <p class="muted">
+          Bekijk eerdere versies van een onderdeel en zet ze eventueel terug.
+        </p>
+
+        <label for="historySection">Van welk onderdeel?</label>
+        <input id="historySection"
+          placeholder="Bijvoorbeeld: welkom">
+
+        <button id="historyButton">Geschiedenis bekijken</button>
+
+        <p id="historyMessage" class="muted"></p>
+        <div id="historyList"></div>
+
+        <div id="historyPreview" style="display:none">
+          <h3>Geselecteerde versie</h3>
+          <div class="preview">
+            <strong id="previewTitle"></strong>
+            <p id="previewContent"></p>
+          </div>
+          <button id="restoreButton">
+            Deze versie terugzetten
+          </button>
+        </div>
+      </div>
+
     </section>
   </main>
 
@@ -92,83 +172,243 @@
     import { createClient } from
       'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-    // Vul hier later je Supabase Project URL en publishable key in.
-    const SUPABASE_URL = 'https://qabsnnncastjekkrjxrs.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_2Lw2SVHLD0nC8xMIsDS03Q_GiaKI80M';
+    const SUPABASE_URL =
+      'https://qabsnnncastjekkrjxrs.supabase.co';
+
+    const SUPABASE_KEY =
+      'sb_publishable_2Lw2SVHLD0nC8xMIsDS03Q_GiaKI80M';
+
+    const supabase = createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
 
     const login = document.querySelector('#login');
     const dashboard = document.querySelector('#dashboard');
     const message = document.querySelector('#message');
     const saveMessage = document.querySelector('#saveMessage');
 
-    if (SUPABASE_URL.startsWith('https://') &&
-        !SUPABASE_URL.includes('VUL_HIER')) {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    let selectedVersion = null;
 
-      async function refresh() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          login.style.display = 'block';
-          dashboard.style.display = 'none';
-          return;
-        }
+    async function refresh() {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
 
-        const { data: admin } = await supabase
-          .from('admin_users')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        login.style.display = 'none';
-        dashboard.style.display = admin ? 'block' : 'none';
-
-        if (!admin) {
-          message.textContent = 'Dit account heeft geen beheerrechten.';
-          login.style.display = 'block';
-          await supabase.auth.signOut();
-        }
+      if (!user) {
+        login.style.display = 'block';
+        dashboard.style.display = 'none';
+        return;
       }
 
-      document.querySelector('#loginButton').onclick = async () => {
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      login.style.display = 'none';
+      dashboard.style.display = admin ? 'block' : 'none';
+
+      if (!admin) {
+        message.textContent =
+          'Dit account heeft geen beheerrechten.';
+        login.style.display = 'block';
+        await supabase.auth.signOut();
+      }
+    }
+
+    document.querySelector('#loginButton').onclick =
+      async () => {
         message.textContent = 'Bezig met inloggen...';
-        const { error } = await supabase.auth.signInWithPassword({
-          email: document.querySelector('#email').value,
-          password: document.querySelector('#password').value
-        });
+
+        const { error } = await supabase.auth
+          .signInWithPassword({
+            email: document.querySelector('#email').value,
+            password: document.querySelector('#password').value
+          });
+
         message.textContent = error ? error.message : '';
+
         if (!error) await refresh();
       };
 
-      document.querySelector('#logoutButton').onclick = async () => {
+    document.querySelector('#logoutButton').onclick =
+      async () => {
         await supabase.auth.signOut();
         await refresh();
       };
 
-      document.querySelector('#saveButton').onclick = async () => {
+    document.querySelector('#saveButton').onclick =
+      async () => {
         saveMessage.textContent = 'Opslaan...';
-        const section = document.querySelector('#section').value.trim();
-        const title = document.querySelector('#title').value;
-        const content = document.querySelector('#content').value;
+
+        const section =
+          document.querySelector('#section').value.trim();
+
+        const title =
+          document.querySelector('#title').value;
+
+        const content =
+          document.querySelector('#content').value;
 
         if (!section) {
-          saveMessage.textContent = 'Vul eerst een onderdeel in.';
+          saveMessage.textContent =
+            'Vul eerst een onderdeel in.';
           return;
         }
 
         const { error } = await supabase
           .from('website_content')
-          .upsert({ section, title, content }, { onConflict: 'section' });
+          .upsert(
+            { section, title, content },
+            { onConflict: 'section' }
+          );
 
         saveMessage.textContent = error
           ? 'Opslaan mislukt: ' + error.message
           : 'Opgeslagen! 🎉';
+
+        if (!error) {
+          document.querySelector('#historySection').value =
+            section;
+          loadHistory();
+        }
       };
 
-      refresh();
-    } else {
-      message.textContent =
-        'Vul eerst de Supabase-projectgegevens in om in te loggen.';
+    async function loadHistory() {
+      const section =
+        document.querySelector('#historySection')
+          .value.trim();
+
+      const historyMessage =
+        document.querySelector('#historyMessage');
+
+      const historyList =
+        document.querySelector('#historyList');
+
+      const preview =
+        document.querySelector('#historyPreview');
+
+      historyList.replaceChildren();
+      preview.style.display = 'none';
+      selectedVersion = null;
+
+      if (!section) {
+        historyMessage.textContent =
+          'Vul eerst een onderdeel in.';
+        return;
+      }
+
+      historyMessage.textContent = 'Geschiedenis laden...';
+
+      const { data, error } = await supabase
+        .from('website_content_history')
+        .select('id, title, content, saved_at')
+        .eq('section', section)
+        .order('saved_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        historyMessage.textContent =
+          'Laden mislukt: ' + error.message;
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        historyMessage.textContent =
+          'Nog geen eerdere versies gevonden.';
+        return;
+      }
+
+      historyMessage.textContent =
+        data.length + ' eerdere versie(s) gevonden.';
+
+      data.forEach(version => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+
+        const date = document.createElement('strong');
+        date.textContent = new Date(
+          version.saved_at
+        ).toLocaleString('nl-NL');
+
+        const title = document.createElement('p');
+        title.textContent =
+          version.title || '(Geen titel)';
+
+        const selectButton = document.createElement('button');
+        selectButton.textContent = 'Bekijk deze versie';
+
+        selectButton.onclick = () => {
+          selectedVersion = version;
+
+          document.querySelector('#previewTitle')
+            .textContent = version.title || '(Geen titel)';
+
+          document.querySelector('#previewContent')
+            .textContent = version.content || '(Geen tekst)';
+
+          preview.style.display = 'block';
+        };
+
+        item.append(date, title, selectButton);
+        historyList.appendChild(item);
+      });
     }
+
+    document.querySelector('#historyButton').onclick =
+      loadHistory;
+
+    document.querySelector('#restoreButton').onclick =
+      async () => {
+        if (!selectedVersion) return;
+
+        const section =
+          document.querySelector('#historySection')
+            .value.trim();
+
+        const confirmed = window.confirm(
+          'Weet je zeker dat je deze oude versie wilt terugzetten?'
+        );
+
+        if (!confirmed) return;
+
+        const restoreMessage =
+          document.querySelector('#historyMessage');
+
+        restoreMessage.textContent = 'Versie terugzetten...';
+
+        const { error } = await supabase
+          .from('website_content')
+          .upsert(
+            {
+              section,
+              title: selectedVersion.title,
+              content: selectedVersion.content
+            },
+            { onConflict: 'section' }
+          );
+
+        if (error) {
+          restoreMessage.textContent =
+            'Terugzetten mislukt: ' + error.message;
+          return;
+        }
+
+        restoreMessage.textContent =
+          'Oude versie teruggezet! 🎉';
+
+        document.querySelector('#section').value = section;
+        document.querySelector('#title').value =
+          selectedVersion.title || '';
+        document.querySelector('#content').value =
+          selectedVersion.content || '';
+
+        await loadHistory();
+      };
+
+    refresh();
   </script>
 </body>
 </html>
